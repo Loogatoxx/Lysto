@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lysto</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">▶</div>
+    <h1>Lysto</h1>
+    <span id="count" class="badge"></span>
+  </header>
+
+  <div class="search-wrap">
+    <input id="search" type="search" placeholder="Rechercher une série…" autocomplete="off" />
+  </div>
+
+  <main id="list"></main>
+
+  <div id="empty" class="empty" hidden>
+    <div class="empty-icon">🎬</div>
+    <p class="empty-title">Aucune série suivie</p>
+    <p class="empty-sub">Lance un épisode sur ton site habituel : Lysto te proposera de suivre la série automatiquement.</p>
+  </div>
+
+  <footer>
+    <span id="ignored-info"></span>
+    <button id="reset-ignored" class="link" hidden>Réinitialiser</button>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

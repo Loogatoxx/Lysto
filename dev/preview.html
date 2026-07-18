@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lysto — aperçu popup (données de démo)</title>
+  <link rel="stylesheet" href="../extension/popup.css" />
+  <script>
+    // Stub de l'API extension pour prévisualiser le popup hors navigateur
+    const DAY = 86400000;
+    const demo = {
+      shows: {
+        "severance": {
+          id: "severance", title: "Severance", archived: false,
+          addedAt: Date.now() - 30 * DAY, lastWatchedAt: Date.now() - 3600000,
+          lastEpisode: "S02E004",
+          episodes: {
+            "S02E003": { label: "Saison 2 · Épisode 3", url: "#", position: 2520, duration: 2650, finished: true, updatedAt: Date.now() - 2 * DAY },
+            "S02E004": { label: "Saison 2 · Épisode 4", url: "#", position: 1264, duration: 2580, finished: false, updatedAt: Date.now() - 3600000 },
+          },
+        },
+        "one-piece": {
+          id: "one-piece", title: "One Piece", archived: false,
+          addedAt: Date.now() - 90 * DAY, lastWatchedAt: Date.now() - 2 * DAY,
+          lastEpisode: "S01E1071",
+          episodes: {
+            "S01E1070": { label: "Saison 1 · Épisode 1070", url: "#", position: 1380, duration: 1420, finished: true, updatedAt: Date.now() - 3 * DAY },
+            "S01E1071": { label: "Saison 1 · Épisode 1071", url: "#", position: 640, duration: 1415, finished: false, updatedAt: Date.now() - 2 * DAY },
+          },
+        },
+        "dark": {
+          id: "dark", title: "Dark", archived: true,
+          addedAt: Date.now() - 200 * DAY, lastWatchedAt: Date.now() - 40 * DAY,
+          lastEpisode: "S03E008",
+          episodes: {
+            "S03E008": { label: "Saison 3 · Épisode 8", url: "#", position: 3560, duration: 3600, finished: true, updatedAt: Date.now() - 40 * DAY },
+          },
+        },
+      },
+      ignored: { "some-show": { title: "Talk-show du soir", at: Date.now() } },
+    };
+    window.chrome = {
+      runtime: { id: "preview" },
+      tabs: { create: (o) => window.open(o.url) },
+      storage: {
+        onChanged: { addListener: () => {} },
+        local: {
+          get: async () => demo,
+          set: async (patch) => Object.assign(demo, patch),
+        },
+      },
+    };
+  </script>
+</head>
+<body>
+  <header>
+    <div class="logo">▶</div>
+    <h1>Lysto</h1>
+    <span id="count" class="badge"></span>
+  </header>
+
+  <div class="search-wrap">
+    <input id="search" type="search" placeholder="Rechercher une série…" autocomplete="off" />
+  </div>
+
+  <main id="list"></main>
+
+  <div id="empty" class="empty" hidden>
+    <div class="empty-icon">🎬</div>
+    <p class="empty-title">Aucune série suivie</p>
+    <p class="empty-sub">Lance un épisode sur ton site habituel : Lysto te proposera de suivre la série automatiquement.</p>
+  </div>
+
+  <footer>
+    <span id="ignored-info"></span>
+    <button id="reset-ignored" class="link" hidden>Réinitialiser</button>
+  </footer>
+
+  <script src="../extension/popup.js"></script>
+</body>
+</html>
