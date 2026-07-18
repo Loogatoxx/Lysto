@@ -138,19 +138,70 @@
       render();
     });
 
+    // confirm() est peu fiable dans un popup d'extension → confirmation inline
     const del = document.createElement("button");
     del.className = "btn btn-ghost btn-danger";
     del.textContent = "✕";
     del.title = "Supprimer la série et son historique";
     del.addEventListener("click", async () => {
-      if (!confirm(`Supprimer « ${show.title} » et tout son historique ?`)) return;
-      delete state.shows[show.id];
-      await save();
-      render();
+      if (del.dataset.armed) {
+        delete state.shows[show.id];
+        await save();
+        render();
+        return;
+      }
+      del.dataset.armed = "1";
+      del.textContent = "Sûr ?";
+      setTimeout(() => {
+        delete del.dataset.armed;
+        del.textContent = "✕";
+      }, 3000);
     });
 
     actions.append(archive, del);
     div.appendChild(actions);
+
+    // Clic sur l'en-tête de la carte → liste des épisodes vus
+    top.style.cursor = "pointer";
+    top.addEventListener("click", () => {
+      const existing = div.querySelector(".episodes");
+      if (existing) { existing.remove(); return; }
+      const eps = Object.entries(show.episodes || {})
+        .map(([key, e]) => ({ key, ...e }))
+        .sort((a, b) =>
+          (b.season || 0) - (a.season || 0) ||
+          (b.episode || 0) - (a.episode || 0) ||
+          (b.updatedAt || 0) - (a.updatedAt || 0)
+        );
+      if (!eps.length) return;
+      const box = document.createElement("div");
+      box.className = "episodes";
+      for (const e of eps) {
+        const row = document.createElement("a");
+        row.className = "ep-row";
+        row.href = e.url || "#";
+        row.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          if (e.url) { api.tabs.create({ url: e.url }); window.close(); }
+        });
+        const name = document.createElement("span");
+        name.className = "ep-name";
+        name.textContent = e.label || e.key;
+        const time = document.createElement("span");
+        time.className = "ep-time";
+        time.textContent = e.duration ? `${fmtTime(e.position)} / ${fmtTime(e.duration)}` : "";
+        row.append(name, time);
+        if (e.finished) {
+          const done = document.createElement("span");
+          done.className = "ep-done";
+          done.textContent = "✓";
+          row.appendChild(done);
+        }
+        box.appendChild(row);
+      }
+      div.appendChild(box);
+    });
+
     return div;
   }
 
@@ -201,6 +252,30 @@
   }
 
   $search.addEventListener("input", render);
+
+  // Secours si la détection automatique n'a pas proposé la série
+  const $addCurrent = document.getElementById("add-current");
+  $addCurrent.addEventListener("click", async () => {
+    const [tab] = await api.tabs.query({ active: true, currentWindow: true });
+    if (!tab) return;
+    const res = await api.runtime.sendMessage({ type: "lysto:manualAdd", tabId: tab.id })
+      .catch(() => null);
+    $addCurrent.classList.remove("ok", "err");
+    if (res && res.ok) {
+      $addCurrent.classList.add("ok");
+      $addCurrent.textContent = "✓";
+      $addCurrent.title = `« ${res.title} » ajoutée`;
+    } else {
+      $addCurrent.classList.add("err");
+      $addCurrent.textContent = "?";
+      $addCurrent.title = "Impossible de reconnaître une série sur cet onglet";
+    }
+    setTimeout(() => {
+      $addCurrent.classList.remove("ok", "err");
+      $addCurrent.textContent = "＋";
+      $addCurrent.title = "Suivre la série de l'onglet actif";
+    }, 2500);
+  });
 
   $resetIgnored.addEventListener("click", async () => {
     state.ignored = {};

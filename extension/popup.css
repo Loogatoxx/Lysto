@@ -51,6 +51,33 @@ h1 { font-size: 17px; font-weight: 800; letter-spacing: 0.3px; flex: 1; }
   border-radius: 999px;
 }
 
+.add-btn {
+  width: 26px; height: 26px;
+  border: none; border-radius: 8px;
+  background: rgba(139, 108, 255, 0.16);
+  color: var(--accent);
+  font-size: 16px; font-weight: 700;
+  line-height: 1;
+  transition: background 0.15s;
+}
+.add-btn:hover { background: rgba(139, 108, 255, 0.3); }
+.add-btn.ok { background: rgba(62, 207, 142, 0.2); color: #3ecf8e; }
+.add-btn.err { background: rgba(255, 80, 80, 0.2); color: #ff7b7b; }
+
+.episodes { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px; }
+.ep-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 2px;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  border-radius: 6px;
+}
+.ep-row:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+.ep-row .ep-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ep-row .ep-time { font-variant-numeric: tabular-nums; flex: none; }
+.ep-row .ep-done { color: #3ecf8e; flex: none; }
+
 .search-wrap { padding: 0 16px 10px; }
 
 #search {

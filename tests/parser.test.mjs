@@ -41,6 +41,18 @@ const cases = [
     url: "https://x.example/bcs",
     expect: { showTitle: "Better Call Saul", season: 6, episode: 13, episodeKey: "S06E013" },
   },
+  // Cas réel senpai-stream : épisode uniquement dans l'URL, format /1-2
+  {
+    title: "Emily in Paris - 2020",
+    url: "https://senpai-stream.gay/episode/emily-in-paris/1-2",
+    expect: { showTitle: "Emily in Paris", season: 1, episode: 2, episodeKey: "S01E002" },
+  },
+  // Titre de lecteur générique → nom de série depuis le slug /episode/<slug>/
+  {
+    title: "Lecteur vidéo",
+    url: "https://senpai-stream.gay/episode/emily-in-paris/2-5",
+    expect: { showTitle: "Emily In Paris", season: 2, episode: 5, episodeKey: "S02E005" },
+  },
 ];
 
 let failed = 0;
@@ -59,6 +71,17 @@ for (const c of cases) {
 
 // Le slug doit être stable (id de série)
 assert.strictEqual(P.slugify("Étoile Brillante !"), "etoile-brillante");
+
+// parseMediaMulti : le nom vient du titre de page, les numéros du h2
+// (cas senpai-stream : h2 = « <titre d'épisode> Saison 1 Épisode 2 »)
+const multi = P.parseMediaMulti(
+  ["Emily in Paris - 2020", "Emily in Paris", "Masculin Féminin Saison 1 Épisode 2"],
+  "https://senpai-stream.gay/episode/emily-in-paris/prochain"
+);
+assert.strictEqual(multi.showTitle, "Emily in Paris", "multi: showTitle → " + multi.showTitle);
+assert.strictEqual(multi.season, 1, "multi: season");
+assert.strictEqual(multi.episode, 2, "multi: episode");
+assert.strictEqual(multi.episodeKey, "S01E002", "multi: episodeKey");
 
 if (failed) {
   console.error(`\n${failed} test(s) en échec`);

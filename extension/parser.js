@@ -33,6 +33,8 @@
   const URL_EP_PATTERNS = [
     { re: /s(?:aison|eason)?[-_/]?(\d{1,2})[-_/]?(?:x|e|[ée]pisode)[-_/]?(\d{1,4})/i, s: 1, e: 2 },
     { re: /episode[-_/]?(\d{1,4})/i, s: null, e: 1 },
+    // segment final « /1-2 » = saison 1 épisode 2 (ex. senpai-stream : /episode/<slug>/1-2)
+    { re: /\/(\d{1,2})-(\d{1,4})(?:[/?#]|$)/, s: 1, e: 2 },
   ];
 
   function pad(n, len) {
@@ -114,8 +116,8 @@
   function showFromUrl(url) {
     try {
       const path = new URL(url).pathname;
-      const m = /(?:series?|show|tv|anime|watch)\/([a-z0-9][a-z0-9\-_]{2,})/i.exec(path);
-      if (m) {
+      const m = /(?:series?|shows?|tv|animes?|watch|episodes?|ep)\/([a-z0-9][a-z0-9\-_]{2,})/i.exec(path);
+      if (m && !/^[\d\-_]+$/.test(m[1])) {
         const slug = m[1].replace(/-(saison|season|episode|streaming|vf|vostfr)-?\d*.*$/i, "");
         return unslugify(slug);
       }
@@ -177,5 +179,42 @@
     };
   }
 
-  return { parseMedia, cleanShowTitle, slugify, unslugify };
+  /**
+   * Fusionne plusieurs sources de texte (titre de page, og:title, h1/h2…).
+   * Le nom de la série vient de la meilleure source, les numéros de
+   * saison/épisode de n'importe quelle source qui en contient.
+   * Ex. senpai-stream : titre = « Emily in Paris - 2020 » (pas d'épisode),
+   * h2 = « Masculin Féminin Saison 1 Épisode 2 » (titre d'épisode + numéros).
+   */
+  function parseMediaMulti(candidates, url) {
+    const list = (candidates || []).filter((c) => c && String(c).trim());
+    let base = parseMedia(list[0] || "", url);
+
+    if (!base.isSeries) {
+      for (const c of list.slice(1)) {
+        const p = parseMedia(c, url);
+        if (p.episode != null) {
+          const showTitle = base.showTitle || p.showTitle;
+          return Object.assign({}, p, {
+            showTitle,
+            showId: slugify(showTitle),
+            url: url || "",
+          });
+        }
+        if (!base.showTitle && p.showTitle) base = p;
+      }
+    }
+    if (!base.showTitle) {
+      for (const c of list.slice(1)) {
+        const t = parseMedia(c, url).showTitle;
+        if (t) {
+          base = Object.assign({}, base, { showTitle: t, showId: slugify(t) });
+          break;
+        }
+      }
+    }
+    return base;
+  }
+
+  return { parseMedia, parseMediaMulti, cleanShowTitle, slugify, unslugify };
 });

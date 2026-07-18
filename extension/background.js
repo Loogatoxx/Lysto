@@ -93,10 +93,56 @@ async function saveProgress(meta, position, duration) {
   return true;
 }
 
+async function addShowFromMeta(meta, tabState) {
+  const { shows, ignored } = await getLocal();
+  if (!shows[meta.showId]) {
+    shows[meta.showId] = {
+      id: meta.showId,
+      title: meta.showTitle,
+      addedAt: Date.now(),
+      lastWatchedAt: Date.now(),
+      archived: false,
+      episodes: {},
+    };
+  }
+  delete ignored[meta.showId];
+  const show = shows[meta.showId];
+  const progress = tabState && tabState.lastProgress;
+  show.episodes[meta.episodeKey] = episodeRecord(
+    show.episodes[meta.episodeKey],
+    meta,
+    progress ? progress.position : 0,
+    progress ? progress.duration : 0
+  );
+  show.lastEpisode = meta.episodeKey;
+  show.lastWatchedAt = Date.now();
+  await setLocal({ shows, ignored });
+}
+
 /* ------------------------------ messages ------------------------------ */
 async function handleMessage(msg, sender) {
+  if (!msg || typeof msg.type !== "string") return null;
+
+  // Message du popup (pas d'onglet émetteur) : ajout manuel de l'onglet actif
+  if (msg.type === "lysto:manualAdd") {
+    const tabId = msg.tabId;
+    if (tabId == null) return { ok: false };
+    const state = await getTabState(tabId);
+    let meta = state.meta && state.meta.showTitle ? state.meta : null;
+    if (!meta) {
+      try {
+        const tab = await api.tabs.get(tabId);
+        meta = LystoParser.parseMedia(tab.title || "", tab.url || "");
+      } catch (_) { /* onglet fermé */ }
+    }
+    if (!meta || !meta.showTitle) return { ok: false };
+    await addShowFromMeta(meta, state);
+    sendToTab(tabId, { type: "lysto:toastResult", kind: "add", action: "accept", position: null });
+    return { ok: true, title: meta.showTitle };
+  }
+
   const tabId = sender.tab ? sender.tab.id : null;
-  if (tabId == null || !msg || typeof msg.type !== "string") return null;
+  if (tabId == null) return null;
 
   switch (msg.type) {
     case "lysto:meta": {
@@ -164,26 +210,7 @@ async function handleMessage(msg, sender) {
       if (!meta) return null;
 
       if (msg.kind === "add" && msg.action === "accept") {
-        const { shows, ignored } = await getLocal();
-        if (!shows[meta.showId]) {
-          shows[meta.showId] = {
-            id: meta.showId,
-            title: meta.showTitle,
-            addedAt: Date.now(),
-            lastWatchedAt: Date.now(),
-            archived: false,
-            episodes: {},
-          };
-        }
-        delete ignored[meta.showId];
-        const state = await getTabState(tabId);
-        if (state.lastProgress) {
-          shows[meta.showId].episodes[meta.episodeKey] = episodeRecord(
-            null, meta, state.lastProgress.position, state.lastProgress.duration
-          );
-          shows[meta.showId].lastEpisode = meta.episodeKey;
-        }
-        await setLocal({ shows, ignored });
+        await addShowFromMeta(meta, await getTabState(tabId));
       }
 
       if (msg.kind === "add" && msg.action === "ignore") {

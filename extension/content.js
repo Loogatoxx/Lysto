@@ -140,7 +140,17 @@
   let lastMetaSig = "";
   function sendMeta() {
     if (!IS_TOP || typeof LystoParser === "undefined") return;
-    const meta = LystoParser.parseMedia(document.title, location.href);
+    // Plusieurs sources : titre d'onglet, og:title, puis h1/h2 (certains sites
+    // n'affichent « Saison 1 Épisode 2 » que dans un heading, pas dans le titre)
+    const candidates = [document.title];
+    const og = document.querySelector('meta[property="og:title"]');
+    if (og && og.content) candidates.push(og.content);
+    for (const h of document.querySelectorAll("h1, h2")) {
+      const txt = (h.textContent || "").trim();
+      if (txt && txt.length < 140) candidates.push(txt);
+      if (candidates.length > 8) break;
+    }
+    const meta = LystoParser.parseMediaMulti(candidates, location.href);
     const sig = JSON.stringify(meta);
     if (sig !== lastMetaSig) {
       lastMetaSig = sig;
@@ -209,11 +219,29 @@
     video.addEventListener("ended", () => sendProgress("ended"));
   }
 
+  // Certains lecteurs cachent la balise <video> dans un shadow DOM
+  function findVideos() {
+    const found = [...document.querySelectorAll("video")];
+    const walk = (root, depth) => {
+      if (depth > 4) return;
+      for (const el of root.querySelectorAll("*")) {
+        if (el.shadowRoot) {
+          found.push(...el.shadowRoot.querySelectorAll("video"));
+          walk(el.shadowRoot, depth + 1);
+        }
+      }
+    };
+    if (!found.length) {
+      try { walk(document, 0); } catch (_) { /* page hostile */ }
+    }
+    return found;
+  }
+
   setInterval(() => {
     // La vidéo peut être retirée du DOM par le lecteur → on ré-adopte
-    if (adopted && !document.contains(adopted.video)) adopted = null;
+    if (adopted && !adopted.video.isConnected) adopted = null;
     if (!adopted) {
-      for (const v of document.querySelectorAll("video")) {
+      for (const v of findVideos()) {
         if (v.duration && isFinite(v.duration) && v.duration >= MIN_DURATION) {
           adopt(v);
           break;

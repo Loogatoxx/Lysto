@@ -39,8 +39,14 @@
       ignored: { "some-show": { title: "Talk-show du soir", at: Date.now() } },
     };
     window.chrome = {
-      runtime: { id: "preview" },
-      tabs: { create: (o) => window.open(o.url) },
+      runtime: {
+        id: "preview",
+        sendMessage: async () => ({ ok: true, title: "Série de démo" }),
+      },
+      tabs: {
+        create: (o) => window.open(o.url),
+        query: async () => [{ id: 1, title: "Emily in Paris - 2020", url: "https://exemple.tld/episode/emily-in-paris/1-2" }],
+      },
       storage: {
         onChanged: { addListener: () => {} },
         local: {
@@ -56,6 +62,7 @@
     <div class="logo">▶</div>
     <h1>Lysto</h1>
     <span id="count" class="badge"></span>
+    <button id="add-current" class="add-btn" title="Suivre la série de l'onglet actif">＋</button>
   </header>
 
   <div class="search-wrap">
