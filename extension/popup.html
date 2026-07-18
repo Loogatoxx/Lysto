@@ -59,9 +59,36 @@
     </div>
   </div>
 
+  <div id="transfer-panel" class="panel" hidden>
+    <div class="panel-title">🔄 Transfert entre navigateurs</div>
+    <p class="panel-hint">
+      Exporte tes données pour les importer dans un autre navigateur (Chrome → Safari, Opera → Chrome…).
+      Le fichier contient toutes tes séries, épisodes et progression.
+    </p>
+    <div class="transfer-actions">
+      <button id="export-btn" class="btn btn-transfer">
+        <span class="transfer-icon">📤</span>
+        <span class="transfer-text">
+          <strong>Exporter</strong>
+          <small>Télécharger mes données</small>
+        </span>
+      </button>
+      <button id="import-btn" class="btn btn-transfer">
+        <span class="transfer-icon">📥</span>
+        <span class="transfer-text">
+          <strong>Importer</strong>
+          <small>Charger depuis un fichier</small>
+        </span>
+      </button>
+    </div>
+    <div id="import-status" class="import-status" hidden></div>
+    <input id="import-file" type="file" accept=".json" hidden />
+  </div>
+
   <footer>
     <span id="ignored-info"></span>
     <button id="reset-ignored" class="link" hidden>Réinitialiser</button>
+    <button id="transfer-toggle" class="gear" title="Exporter / Importer">🔄</button>
     <button id="settings-toggle" class="gear" title="Réglages">⚙</button>
   </footer>
 

@@ -363,6 +363,183 @@
     render();
   });
 
+  /* ------ Export / Import (transfert entre navigateurs) ------ */
+  const $transferPanel = document.getElementById("transfer-panel");
+  const $importFile = document.getElementById("import-file");
+  const $importStatus = document.getElementById("import-status");
+
+  document.getElementById("transfer-toggle").addEventListener("click", () => {
+    $transferPanel.hidden = !$transferPanel.hidden;
+    // Ferme les autres panneaux
+    if (!$transferPanel.hidden) {
+      $settingsPanel.hidden = true;
+      $addPanel.hidden = true;
+      $importStatus.hidden = true;
+    }
+  });
+
+  // ---- EXPORT ----
+  document.getElementById("export-btn").addEventListener("click", async () => {
+    const data = await api.storage.local.get(["shows", "ignored"]);
+    const payload = {
+      _lysto: true,
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      shows: data.shows || {},
+      ignored: data.ignored || {},
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10);
+    const nShows = Object.keys(payload.shows).length;
+    a.href = url;
+    a.download = `lysto-backup-${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showImportStatus("success",
+      `✓ Export téléchargé — ${nShows} série${nShows > 1 ? "s" : ""}. ` +
+      `Importe ce fichier dans Lysto sur un autre navigateur.`
+    );
+  });
+
+  // ---- IMPORT ----
+  document.getElementById("import-btn").addEventListener("click", () => {
+    $importFile.click();
+  });
+
+  $importFile.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      $importFile.value = ""; // reset pour pouvoir ré-importer le même fichier
+      let data;
+      try {
+        data = JSON.parse(reader.result);
+      } catch (_) {
+        showImportStatus("error", "❌ Fichier invalide — ce n'est pas un JSON valide.");
+        return;
+      }
+      if (!data._lysto || !data.shows) {
+        showImportStatus("error", "❌ Ce fichier n'est pas un export Lysto.");
+        return;
+      }
+      const incoming = Object.keys(data.shows).length;
+      const existing = Object.keys(state.shows).length;
+      if (incoming === 0) {
+        showImportStatus("error", "⚠ Le fichier est vide — aucune série à importer.");
+        return;
+      }
+
+      // S'il y a déjà des données, on demande confirmation avec choix fusionner/remplacer
+      if (existing > 0) {
+        showImportConfirm(data, incoming, existing);
+      } else {
+        // Pas de données existantes → import direct
+        await doImport(data, "replace");
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  function showImportStatus(type, message) {
+    $importStatus.hidden = false;
+    $importStatus.className = "import-status " + type;
+    $importStatus.textContent = message;
+    if (type === "success") {
+      setTimeout(() => { $importStatus.hidden = true; }, 5000);
+    }
+  }
+
+  function showImportConfirm(data, incoming, existing) {
+    $importStatus.hidden = false;
+    $importStatus.className = "import-status confirm";
+    $importStatus.innerHTML = "";
+
+    const msg = document.createElement("div");
+    msg.textContent = `📦 ${incoming} série${incoming > 1 ? "s" : ""} trouvée${incoming > 1 ? "s" : ""} dans le fichier. ` +
+      `Tu as déjà ${existing} série${existing > 1 ? "s" : ""} ici.`;
+    $importStatus.appendChild(msg);
+
+    const row = document.createElement("div");
+    row.className = "confirm-row";
+
+    const mergeBtn = document.createElement("button");
+    mergeBtn.className = "btn btn-primary";
+    mergeBtn.style.flex = "1";
+    mergeBtn.textContent = "🔀 Fusionner";
+    mergeBtn.title = "Garde tes séries + ajoute celles du fichier. En cas de doublon, garde la donnée la plus récente.";
+    mergeBtn.addEventListener("click", () => doImport(data, "merge"));
+
+    const replaceBtn = document.createElement("button");
+    replaceBtn.className = "btn btn-ghost";
+    replaceBtn.style.flex = "1";
+    replaceBtn.textContent = "♻ Remplacer tout";
+    replaceBtn.title = "Efface tout et remplace par le contenu du fichier.";
+    replaceBtn.addEventListener("click", () => doImport(data, "replace"));
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "btn btn-ghost";
+    cancelBtn.textContent = "✕";
+    cancelBtn.addEventListener("click", () => { $importStatus.hidden = true; });
+
+    row.append(mergeBtn, replaceBtn, cancelBtn);
+    $importStatus.appendChild(row);
+  }
+
+  async function doImport(data, mode) {
+    const importedShows = data.shows || {};
+    const importedIgnored = data.ignored || {};
+
+    if (mode === "replace") {
+      state.shows = importedShows;
+      state.ignored = importedIgnored;
+    } else {
+      // Merge: pour chaque série, on fusionne les épisodes en gardant les données les plus récentes
+      for (const [id, show] of Object.entries(importedShows)) {
+        if (!state.shows[id]) {
+          // Série absente → on l'ajoute telle quelle
+          state.shows[id] = show;
+        } else {
+          // Série déjà présente → fusion des épisodes
+          const existing = state.shows[id];
+          existing.episodes = existing.episodes || {};
+          for (const [epKey, ep] of Object.entries(show.episodes || {})) {
+            if (!existing.episodes[epKey]) {
+              existing.episodes[epKey] = ep;
+            } else {
+              // Épisode existe des deux côtés → on garde le plus récent
+              if ((ep.updatedAt || 0) > (existing.episodes[epKey].updatedAt || 0)) {
+                existing.episodes[epKey] = ep;
+              }
+            }
+          }
+          // Met à jour lastWatchedAt si l'import est plus récent
+          if ((show.lastWatchedAt || 0) > (existing.lastWatchedAt || 0)) {
+            existing.lastWatchedAt = show.lastWatchedAt;
+            existing.lastEpisode = show.lastEpisode;
+          }
+        }
+      }
+      // Merge ignored: on ajoute les nouvelles, on ne supprime pas les existantes
+      for (const [id, ign] of Object.entries(importedIgnored)) {
+        if (!state.ignored[id]) {
+          state.ignored[id] = ign;
+        }
+      }
+    }
+
+    await save();
+    render();
+
+    const n = Object.keys(state.shows).length;
+    showImportStatus("success",
+      `✓ Import ${mode === "merge" ? "fusionné" : "terminé"} — ${n} série${n > 1 ? "s" : ""} au total.`
+    );
+  }
+
   // Rafraîchit en direct si un épisode est en cours de lecture dans un autre onglet
   api.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;

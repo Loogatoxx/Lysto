@@ -319,3 +319,78 @@ footer {
 .panel input::placeholder { color: rgba(154, 154, 166, 0.5); }
 .row2 { display: flex; gap: 8px; }
 .panel-actions { display: flex; gap: 8px; align-items: center; margin-top: 2px; }
+
+/* Transfer (export/import) panel */
+.transfer-actions {
+  display: flex; gap: 8px;
+}
+
+.btn-transfer {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+.btn-transfer:hover {
+  border-color: rgba(139, 108, 255, 0.3);
+  background: rgba(139, 108, 255, 0.06);
+  transform: translateY(-1px);
+}
+.btn-transfer:active {
+  transform: translateY(0);
+}
+
+.transfer-icon {
+  font-size: 22px;
+  flex: none;
+}
+
+.transfer-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.transfer-text strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.transfer-text small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.import-status {
+  font-size: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  line-height: 1.45;
+  animation: slideDown 0.2s ease;
+}
+.import-status.success {
+  background: rgba(62, 207, 142, 0.1);
+  color: var(--green);
+  border: 1px solid rgba(62, 207, 142, 0.2);
+}
+.import-status.error {
+  background: rgba(255, 80, 80, 0.1);
+  color: var(--red);
+  border: 1px solid rgba(255, 80, 80, 0.2);
+}
+.import-status.confirm {
+  background: rgba(139, 108, 255, 0.08);
+  color: var(--text);
+  border: 1px solid rgba(139, 108, 255, 0.2);
+}
+.import-status .confirm-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
