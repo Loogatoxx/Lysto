@@ -48,6 +48,94 @@ async function setLocal(patch) {
   await api.storage.local.set(patch);
 }
 
+/* --------------------------- assistance IA ---------------------------- */
+/*
+ * Dernier recours quand le parseur n'a pas identifié série + épisode.
+ * Nécessite une clé API Anthropic dans les réglages du popup (stockée en
+ * local uniquement). Un seul appel par page, résultat mis en cache.
+ */
+const AI_MODEL = "claude-opus-4-8";
+
+const AI_SCHEMA = {
+  type: "object",
+  properties: {
+    show: { anyOf: [{ type: "string" }, { type: "null" }] },
+    season: { anyOf: [{ type: "integer" }, { type: "null" }] },
+    episode: { anyOf: [{ type: "integer" }, { type: "null" }] },
+  },
+  required: ["show", "season", "episode"],
+  additionalProperties: false,
+};
+
+async function aiEnrich(meta, candidates, sender) {
+  const { settings } = await api.storage.local.get("settings");
+  const aiKey = settings && settings.aiKey;
+  if (!aiKey) return null;
+
+  const url = (meta && meta.url) || (sender.tab && sender.tab.url) || "";
+  const texts = (candidates && candidates.length)
+    ? candidates
+    : [sender.tab && sender.tab.title].filter(Boolean);
+  if (!url && !texts.length) return null;
+
+  // Cache par page (et par sélection d'épisode) pour ne payer qu'un appel
+  const cacheKey = "ai:" + url + "::" + texts.join("|").slice(0, 300);
+  if (api.storage.session) {
+    const cached = await api.storage.session.get(cacheKey);
+    if (cached[cacheKey] !== undefined) return cached[cacheKey];
+  }
+
+  let result = null;
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": aiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        max_tokens: 256,
+        output_config: { format: { type: "json_schema", schema: AI_SCHEMA } },
+        messages: [{
+          role: "user",
+          content:
+            "Voici les métadonnées d'une page d'un site de streaming vidéo. " +
+            "Identifie la série (ou l'anime/le film) regardée, ainsi que le numéro " +
+            "de saison et d'épisode si présents. Réponds null pour tout champ " +
+            "introuvable. Le nom de la série doit être propre, sans mention du " +
+            "site, de la langue (VF/VOSTFR) ou de la qualité.\n\n" +
+            "URL : " + url + "\n" +
+            "Textes de la page :\n" + texts.map((t) => "- " + t).join("\n"),
+        }],
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.stop_reason !== "refusal") {
+        const text = ((data.content || []).find((b) => b.type === "text") || {}).text || "";
+        const parsed = JSON.parse(text);
+        const showTitle = parsed.show || (meta && meta.showTitle) || "";
+        if (showTitle) {
+          result = LystoParser.makeMeta(
+            showTitle,
+            parsed.season != null ? parsed.season : meta && meta.season,
+            parsed.episode != null ? parsed.episode : meta && meta.episode,
+            url
+          );
+        }
+      }
+    }
+  } catch (_) { /* réseau/JSON : on retombe sur l'heuristique */ }
+
+  if (api.storage.session) {
+    await api.storage.session.set({ [cacheKey]: result });
+  }
+  return result;
+}
+
 /* ------------------------------ helpers ------------------------------- */
 function sendToTab(tabId, msg) {
   try {
@@ -66,8 +154,32 @@ async function metaForTab(tabId, sender) {
   return null;
 }
 
+/**
+ * Attend que le meta soit disponible pour un onglet (retry avec backoff).
+ * Utile quand la frame vidéo envoie suggestAdd avant que la frame top
+ * ait eu le temps d'envoyer ses méta.
+ */
+async function metaForTabWithRetry(tabId, sender, maxRetries) {
+  maxRetries = maxRetries || 3;
+  for (let i = 0; i <= maxRetries; i++) {
+    const meta = await metaForTab(tabId, sender);
+    if (meta && meta.showTitle) return meta;
+    if (i < maxRetries) {
+      await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+    }
+  }
+  // Dernier recours : essayer de récupérer les infos directement du tab
+  try {
+    const tab = await api.tabs.get(tabId);
+    if (tab && (tab.title || tab.url)) {
+      return LystoParser.parseMedia(tab.title || "", tab.url || "");
+    }
+  } catch (_) { /* onglet fermé */ }
+  return null;
+}
+
 function episodeRecord(existing, meta, position, duration) {
-  const finished = duration > 0 && position / duration >= 0.95;
+  const finished = duration > 0 && position / duration >= 0.93;
   return Object.assign({}, existing, {
     season: meta.season,
     episode: meta.episode,
@@ -123,19 +235,42 @@ async function addShowFromMeta(meta, tabState) {
 async function handleMessage(msg, sender) {
   if (!msg || typeof msg.type !== "string") return null;
 
-  // Message du popup (pas d'onglet émetteur) : ajout manuel de l'onglet actif
+  // Messages du popup (pas d'onglet émetteur) : tabId explicite
+  if (msg.type === "lysto:getMeta") {
+    if (msg.tabId == null) return null;
+    const state = await getTabState(msg.tabId);
+    if (state.meta && state.meta.showTitle) return state.meta;
+    try {
+      const tab = await api.tabs.get(msg.tabId);
+      return LystoParser.parseMedia(tab.title || "", tab.url || "");
+    } catch (_) { return null; }
+  }
+
   if (msg.type === "lysto:manualAdd") {
     const tabId = msg.tabId;
     if (tabId == null) return { ok: false };
     const state = await getTabState(tabId);
     let meta = state.meta && state.meta.showTitle ? state.meta : null;
-    if (!meta) {
+    let url = (meta && meta.url) || "";
+    if (!meta || !url) {
       try {
         const tab = await api.tabs.get(tabId);
-        meta = LystoParser.parseMedia(tab.title || "", tab.url || "");
+        url = url || tab.url || "";
+        if (!meta) meta = LystoParser.parseMedia(tab.title || "", tab.url || "");
       } catch (_) { /* onglet fermé */ }
     }
-    if (!meta || !meta.showTitle) return { ok: false };
+    // Le popup peut corriger titre/saison/épisode avant l'ajout
+    const o = msg.override || {};
+    const title = (o.title || (meta && meta.showTitle) || "").trim();
+    if (!title) return { ok: false };
+    meta = LystoParser.makeMeta(
+      title,
+      o.season != null ? o.season : meta && meta.season,
+      o.episode != null ? o.episode : meta && meta.episode,
+      url
+    );
+    state.meta = meta;
+    await setTabState(tabId, state);
     await addShowFromMeta(meta, state);
     sendToTab(tabId, { type: "lysto:toastResult", kind: "add", action: "accept", position: null });
     return { ok: true, title: meta.showTitle };
@@ -148,12 +283,23 @@ async function handleMessage(msg, sender) {
     case "lysto:meta": {
       const state = await getTabState(tabId);
       state.meta = msg.meta;
+      state.candidates = msg.candidates || [];
       await setTabState(tabId, state);
       return null;
     }
 
     case "lysto:videoFound": {
-      const meta = await metaForTab(tabId, sender);
+      let meta = await metaForTabWithRetry(tabId, sender, 3);
+      // L'algo n'a pas tout trouvé ? On demande de l'aide à Claude (optionnel)
+      if (!meta || !meta.showTitle || !meta.isSeries) {
+        const state = await getTabState(tabId);
+        const enriched = await aiEnrich(meta, state.candidates, sender);
+        if (enriched) {
+          meta = enriched;
+          state.meta = meta;
+          await setTabState(tabId, state);
+        }
+      }
       if (!meta || !meta.showId) return { tracked: false, ignored: false, resume: null };
       const { shows, ignored } = await getLocal();
       const show = shows[meta.showId];
@@ -176,8 +322,11 @@ async function handleMessage(msg, sender) {
     }
 
     case "lysto:suggestAdd": {
-      const meta = await metaForTab(tabId, sender);
+      // Utilise retry pour attendre que le meta arrive de la frame top
+      const meta = await metaForTabWithRetry(tabId, sender, 4);
       if (!meta || !meta.showId || !meta.showTitle) return null;
+      const { ignored } = await getLocal();
+      if (ignored[meta.showId]) return null; // déjà ignorée par l'utilisateur
       const state = await getTabState(tabId);
       state.asked = state.asked || {};
       if (state.asked[meta.showId]) return null; // déjà proposé dans cet onglet
@@ -193,7 +342,7 @@ async function handleMessage(msg, sender) {
     }
 
     case "lysto:requestToast": {
-      const meta = await metaForTab(tabId, sender);
+      const meta = await metaForTabWithRetry(tabId, sender, 2);
       if (!meta) return null;
       sendToTab(tabId, {
         type: "lysto:toast",

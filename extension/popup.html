@@ -17,17 +17,52 @@
     <input id="search" type="search" placeholder="Rechercher une série…" autocomplete="off" />
   </div>
 
+  <div id="add-panel" class="panel" hidden>
+    <div class="panel-title">📺 Suivre une série</div>
+    <p class="panel-hint">Lysto a détecté ces infos depuis l'onglet actif. Tu peux les corriger avant d'ajouter.</p>
+    <label class="input-label">Nom de la série</label>
+    <input id="add-title" type="text" placeholder="Ex: Breaking Bad" autocomplete="off" />
+    <div class="row2">
+      <div class="input-group">
+        <label class="input-label">Saison</label>
+        <input id="add-season" type="number" min="0" placeholder="—" />
+      </div>
+      <div class="input-group">
+        <label class="input-label">Épisode</label>
+        <input id="add-episode" type="number" min="0" placeholder="—" />
+      </div>
+    </div>
+    <div class="panel-actions">
+      <button id="add-confirm" class="btn btn-primary">✓ Ajouter</button>
+      <button id="add-cancel" class="btn btn-ghost">Annuler</button>
+    </div>
+  </div>
+
   <main id="list"></main>
 
   <div id="empty" class="empty" hidden>
     <div class="empty-icon">🎬</div>
     <p class="empty-title">Aucune série suivie</p>
-    <p class="empty-sub">Lance un épisode sur ton site habituel : Lysto te proposera de suivre la série automatiquement.</p>
+    <p class="empty-sub">Lance un épisode sur ton site habituel : Lysto te proposera de suivre la série automatiquement.<br><br>Tu peux aussi cliquer <strong>＋</strong> pour ajouter manuellement.</p>
+  </div>
+
+  <div id="settings-panel" class="panel" hidden>
+    <div class="panel-title">🤖 Assistance IA (optionnel)</div>
+    <p class="panel-hint">
+      Quand un site est illisible, Lysto peut demander à Claude d'identifier la
+      série. Colle une clé API Anthropic — elle reste uniquement dans ton navigateur.
+    </p>
+    <input id="ai-key" type="password" placeholder="sk-ant-…" autocomplete="off" />
+    <div class="panel-actions">
+      <button id="ai-save" class="btn btn-primary">Enregistrer</button>
+      <span id="ai-status" class="panel-hint"></span>
+    </div>
   </div>
 
   <footer>
     <span id="ignored-info"></span>
     <button id="reset-ignored" class="link" hidden>Réinitialiser</button>
+    <button id="settings-toggle" class="gear" title="Réglages">⚙</button>
   </footer>
 
   <script src="popup.js"></script>

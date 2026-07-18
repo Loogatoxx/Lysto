@@ -11,8 +11,8 @@
   if (!api || !api.runtime || !api.runtime.id) return;
 
   const IS_TOP = window === window.top;
-  const MIN_DURATION = 240;      // secondes : en dessous, c'est une pub / un extrait
-  const ASK_AFTER_PLAYED = 20;   // secondes réellement visionnées avant de proposer l'ajout
+  const MIN_DURATION = 120;      // secondes : réduit de 240→120 pour les animes (~22 min)
+  const ASK_AFTER_PLAYED = 15;   // secondes réellement visionnées avant de proposer l'ajout (réduit de 20→15)
   const SAVE_INTERVAL = 5000;    // ms entre deux sauvegardes de position
 
   const send = (msg) => {
@@ -52,28 +52,30 @@
     const style = document.createElement("style");
     style.textContent = `
       .card{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-        width:330px;box-sizing:border-box;background:#15151d;color:#f2f2f7;
+        width:340px;box-sizing:border-box;background:#15151d;color:#f2f2f7;
         border:1px solid rgba(255,255,255,.09);border-radius:16px;
-        box-shadow:0 12px 40px rgba(0,0,0,.45);padding:14px 16px;
-        animation:lysto-in .28s cubic-bezier(.2,.9,.3,1.2)}
-      @keyframes lysto-in{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
-      .head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-      .logo{width:20px;height:20px;border-radius:6px;flex:none;
+        box-shadow:0 12px 40px rgba(0,0,0,.55);padding:16px 18px;
+        animation:lysto-in .32s cubic-bezier(.2,.9,.3,1.15)}
+      @keyframes lysto-in{from{transform:translateY(18px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+      .head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+      .logo{width:22px;height:22px;border-radius:7px;flex:none;
         background:linear-gradient(160deg,#8b6cff,#5a3ef0);display:grid;place-items:center}
-      .logo span{color:#fff;font-size:10px;transform:translateX(1px)}
+      .logo span{color:#fff;font-size:11px;transform:translateX(1px)}
       .brand{font-size:12px;font-weight:700;letter-spacing:.4px;color:#a99cff;flex:1}
       .close{cursor:pointer;border:none;background:none;color:#8e8e99;font-size:15px;
-        padding:2px 6px;border-radius:6px}
+        padding:2px 6px;border-radius:6px;transition:all .15s}
       .close:hover{background:rgba(255,255,255,.08);color:#fff}
-      .title{font-size:14.5px;font-weight:700;margin:0 0 2px;line-height:1.3}
-      .sub{font-size:12.5px;color:#a0a0ab;margin:0 0 12px}
+      .title{font-size:15px;font-weight:700;margin:0 0 3px;line-height:1.3}
+      .sub{font-size:12.5px;color:#a0a0ab;margin:0 0 14px;line-height:1.45}
       .row{display:flex;gap:8px}
-      button.btn{flex:1;cursor:pointer;border:none;border-radius:10px;padding:9px 10px;
-        font-size:13px;font-weight:600;font-family:inherit;transition:filter .15s}
+      button.btn{flex:1;cursor:pointer;border:none;border-radius:10px;padding:10px 12px;
+        font-size:13px;font-weight:600;font-family:inherit;transition:all .15s}
       .primary{background:linear-gradient(160deg,#8b6cff,#5a3ef0);color:#fff}
-      .primary:hover{filter:brightness(1.12)}
+      .primary:hover{filter:brightness(1.12);transform:translateY(-1px)}
       .ghost{background:rgba(255,255,255,.08);color:#c9c9d3}
-      .ghost:hover{background:rgba(255,255,255,.14)}`;
+      .ghost:hover{background:rgba(255,255,255,.14)}
+      .dismiss{animation:lysto-out .22s ease-in forwards}
+      @keyframes lysto-out{to{transform:translateY(18px);opacity:0}}`;
     root.appendChild(style);
 
     const card = document.createElement("div");
@@ -92,7 +94,8 @@
     close.textContent = "✕";
     close.addEventListener("click", () => {
       send({ type: "lysto:toastAction", kind, action: "dismiss" });
-      removeToast();
+      card.classList.add("dismiss");
+      setTimeout(removeToast, 250);
     });
     head.append(logo, brand, close);
 
@@ -109,23 +112,28 @@
       b.textContent = label;
       b.addEventListener("click", () => {
         send(Object.assign({ type: "lysto:toastAction", kind, action }, extra || {}));
-        removeToast();
+        card.classList.add("dismiss");
+        setTimeout(removeToast, 250);
       });
       return b;
     };
 
     if (kind === "add") {
       title.textContent = `Tu regardes « ${showTitle} » ?`;
-      sub.textContent = `${episodeLabel} — je peux suivre cette série et retenir où tu en es.`;
+      sub.textContent = episodeLabel
+        ? `${episodeLabel} — je peux suivre cette série et retenir où tu en es.`
+        : `Je peux suivre cette série et retenir où tu en es.`;
       row.append(
-        mkBtn("Suivre la série", "primary", "accept"),
+        mkBtn("✓ Suivre la série", "primary", "accept"),
         mkBtn("Ignorer", "ghost", "ignore")
       );
     } else if (kind === "resume") {
       title.textContent = `Reprendre « ${showTitle} » ?`;
-      sub.textContent = `${episodeLabel} — tu t'étais arrêté à ${fmtTime(position)}.`;
+      sub.textContent = episodeLabel
+        ? `${episodeLabel} — tu t'étais arrêté à ${fmtTime(position)}.`
+        : `Tu t'étais arrêté à ${fmtTime(position)}.`;
       row.append(
-        mkBtn(`Reprendre à ${fmtTime(position)}`, "primary", "accept", { position }),
+        mkBtn(`▶ Reprendre à ${fmtTime(position)}`, "primary", "accept", { position }),
         mkBtn("Depuis le début", "ghost", "restart")
       );
     }
@@ -134,32 +142,91 @@
     root.appendChild(card);
     (document.body || document.documentElement).appendChild(toastHost);
 
-    setTimeout(removeToast, kind === "add" ? 25000 : 18000);
+    // Auto-dismiss après un délai
+    setTimeout(() => {
+      if (toastHost) {
+        card.classList.add("dismiss");
+        setTimeout(removeToast, 250);
+      }
+    }, kind === "add" ? 30000 : 20000);
   }
 
   let lastMetaSig = "";
+  let metaSentCount = 0;
+
   function sendMeta() {
     if (!IS_TOP || typeof LystoParser === "undefined") return;
-    // Plusieurs sources : titre d'onglet, og:title, puis h1/h2 (certains sites
-    // n'affichent « Saison 1 Épisode 2 » que dans un heading, pas dans le titre)
+    // Plusieurs sources : titre d'onglet, og:title, h1/h2 (certains sites
+    // n'affichent « Saison 1 Épisode 2 » que dans un heading), et l'option
+    // sélectionnée des menus déroulants (anime-sama : <select> « Episode 5 »
+    // qui change sans changer l'URL)
     const candidates = [document.title];
     const og = document.querySelector('meta[property="og:title"]');
     if (og && og.content) candidates.push(og.content);
-    for (const h of document.querySelectorAll("h1, h2")) {
+
+    // og:description peut contenir des infos série
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc && ogDesc.content && ogDesc.content.length < 200) {
+      candidates.push(ogDesc.content);
+    }
+
+    // Headings h1/h2/h3
+    for (const h of document.querySelectorAll("h1, h2, h3")) {
       const txt = (h.textContent || "").trim();
       if (txt && txt.length < 140) candidates.push(txt);
-      if (candidates.length > 8) break;
+      if (candidates.length > 12) break;
     }
+
+    // Breadcrumbs (souvent contiennent le nom de la série)
+    for (const bc of document.querySelectorAll('[class*="breadcrumb"] a, [class*="Breadcrumb"] a, nav[aria-label*="breadcrumb"] a')) {
+      const txt = (bc.textContent || "").trim();
+      if (txt && txt.length < 80 && txt.length > 2) candidates.push(txt);
+      if (candidates.length > 16) break;
+    }
+
+    // Menus déroulants (anime-sama : <select> « Episode 5 »)
+    for (const sel of document.querySelectorAll("select")) {
+      const opt = sel.selectedOptions && sel.selectedOptions[0];
+      const txt = opt ? (opt.text || "").trim() : "";
+      if (txt && txt.length < 60 && /[éeÉE]p(?:isode)?\s*\.?\s*\d/i.test(txt)) {
+        candidates.push(txt);
+      }
+      if (candidates.length > 18) break;
+    }
+
+    // Structured data (JSON-LD) — some sites embed episode info there
+    for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+      try {
+        const data = JSON.parse(script.textContent || "");
+        const name = data.name || (data["@graph"] && data["@graph"][0] && data["@graph"][0].name);
+        if (name && typeof name === "string" && name.length < 120) {
+          candidates.push(name);
+        }
+        if (data.partOfSeason && data.partOfSeason.seasonNumber) {
+          candidates.push("Saison " + data.partOfSeason.seasonNumber);
+        }
+        if (data.episodeNumber) {
+          candidates.push("Episode " + data.episodeNumber);
+        }
+      } catch (_) { /* JSON invalide */ }
+    }
+
     const meta = LystoParser.parseMediaMulti(candidates, location.href);
     const sig = JSON.stringify(meta);
-    if (sig !== lastMetaSig) {
+    if (sig !== lastMetaSig || metaSentCount < 3) {
       lastMetaSig = sig;
-      send({ type: "lysto:meta", meta });
+      metaSentCount++;
+      send({ type: "lysto:meta", meta, candidates: candidates.slice(0, 18) });
     }
   }
 
   if (IS_TOP) {
+    // Envoyer les méta plusieurs fois au début pour s'assurer que le background les a
     sendMeta();
+    setTimeout(sendMeta, 500);
+    setTimeout(sendMeta, 2000);
+    setTimeout(sendMeta, 5000);
+
     // Les sites de streaming changent souvent le titre après coup (SPA)
     try {
       new MutationObserver(() => {
@@ -169,7 +236,18 @@
         subtree: true, childList: true, characterData: true,
       });
     } catch (_) { /* head absent */ }
-    setInterval(sendMeta, 3000);
+    // Changement d'épisode via un <select> (SPA, l'URL ne change pas)
+    document.addEventListener("change", () => setTimeout(sendMeta, 150), true);
+    // Observer aussi les changements de body (pour les SPA qui chargent le contenu en AJAX)
+    try {
+      new MutationObserver(() => {
+        clearTimeout(sendMeta._bodyT);
+        sendMeta._bodyT = setTimeout(sendMeta, 800);
+      }).observe(document.body || document.documentElement, {
+        subtree: true, childList: true,
+      });
+    } catch (_) { /* body absent */ }
+    setInterval(sendMeta, 4000);
   }
 
   /* ------------------------------------------------------------------ */
@@ -198,9 +276,9 @@
       adopted.ignored = !!res.ignored;
       if (
         res.resume &&
-        res.resume.position > 45 &&
+        res.resume.position > 30 &&
         res.resume.position < video.duration * 0.96 &&
-        Math.abs(video.currentTime - res.resume.position) > 20
+        Math.abs(video.currentTime - res.resume.position) > 15
       ) {
         send({ type: "lysto:requestToast", kind: "resume", position: res.resume.position });
       }
@@ -223,7 +301,7 @@
   function findVideos() {
     const found = [...document.querySelectorAll("video")];
     const walk = (root, depth) => {
-      if (depth > 4) return;
+      if (depth > 5) return;
       for (const el of root.querySelectorAll("*")) {
         if (el.shadowRoot) {
           found.push(...el.shadowRoot.querySelectorAll("video"));
@@ -237,16 +315,53 @@
     return found;
   }
 
+  // Quand aucune vidéo longue n'est trouvée, on surveille les nouvelles vidéos
+  let videoObserver = null;
+  function startVideoObserver() {
+    if (videoObserver) return;
+    try {
+      videoObserver = new MutationObserver(() => {
+        if (!adopted) scanVideos();
+      });
+      videoObserver.observe(document.body || document.documentElement, {
+        subtree: true, childList: true,
+      });
+    } catch (_) { /* body absent */ }
+  }
+
+  function scanVideos() {
+    if (adopted && adopted.video.isConnected) return;
+    adopted = null;
+    for (const v of findVideos()) {
+      // Accepter les vidéos dont la durée est connue et >= MIN_DURATION
+      if (v.duration && isFinite(v.duration) && v.duration >= MIN_DURATION) {
+        adopt(v);
+        return;
+      }
+      // Si la durée n'est pas encore connue (lazy load), on attend
+      if (!v.duration || !isFinite(v.duration)) {
+        const onMeta = () => {
+          v.removeEventListener("loadedmetadata", onMeta);
+          v.removeEventListener("durationchange", onMeta);
+          if (!adopted && v.duration && isFinite(v.duration) && v.duration >= MIN_DURATION) {
+            adopt(v);
+          }
+        };
+        v.addEventListener("loadedmetadata", onMeta, { once: false });
+        v.addEventListener("durationchange", onMeta, { once: false });
+      }
+    }
+  }
+
+  // Scan initial + observer
+  scanVideos();
+  startVideoObserver();
+
   setInterval(() => {
     // La vidéo peut être retirée du DOM par le lecteur → on ré-adopte
     if (adopted && !adopted.video.isConnected) adopted = null;
     if (!adopted) {
-      for (const v of findVideos()) {
-        if (v.duration && isFinite(v.duration) && v.duration >= MIN_DURATION) {
-          adopt(v);
-          break;
-        }
-      }
+      scanVideos();
     }
     if (adopted) {
       const v = adopted.video;

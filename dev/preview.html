@@ -14,8 +14,8 @@
           addedAt: Date.now() - 30 * DAY, lastWatchedAt: Date.now() - 3600000,
           lastEpisode: "S02E004",
           episodes: {
-            "S02E003": { label: "Saison 2 · Épisode 3", url: "#", position: 2520, duration: 2650, finished: true, updatedAt: Date.now() - 2 * DAY },
-            "S02E004": { label: "Saison 2 · Épisode 4", url: "#", position: 1264, duration: 2580, finished: false, updatedAt: Date.now() - 3600000 },
+            "S02E003": { season: 2, episode: 3, label: "Saison 2 · Épisode 3", url: "#", position: 2520, duration: 2650, finished: true, updatedAt: Date.now() - 2 * DAY },
+            "S02E004": { season: 2, episode: 4, label: "Saison 2 · Épisode 4", url: "#", position: 1264, duration: 2580, finished: false, updatedAt: Date.now() - 3600000 },
           },
         },
         "one-piece": {
@@ -23,8 +23,17 @@
           addedAt: Date.now() - 90 * DAY, lastWatchedAt: Date.now() - 2 * DAY,
           lastEpisode: "S01E1071",
           episodes: {
-            "S01E1070": { label: "Saison 1 · Épisode 1070", url: "#", position: 1380, duration: 1420, finished: true, updatedAt: Date.now() - 3 * DAY },
-            "S01E1071": { label: "Saison 1 · Épisode 1071", url: "#", position: 640, duration: 1415, finished: false, updatedAt: Date.now() - 2 * DAY },
+            "S01E1070": { season: 1, episode: 1070, label: "Saison 1 · Épisode 1070", url: "#", position: 1380, duration: 1420, finished: true, updatedAt: Date.now() - 3 * DAY },
+            "S01E1071": { season: 1, episode: 1071, label: "Saison 1 · Épisode 1071", url: "#", position: 640, duration: 1415, finished: false, updatedAt: Date.now() - 2 * DAY },
+          },
+        },
+        "emily-in-paris": {
+          id: "emily-in-paris", title: "Emily in Paris", archived: false,
+          addedAt: Date.now() - 5 * DAY, lastWatchedAt: Date.now() - 1800000,
+          lastEpisode: "S01E002",
+          episodes: {
+            "S01E001": { season: 1, episode: 1, label: "Saison 1 · Épisode 1", url: "#", position: 2400, duration: 2400, finished: true, updatedAt: Date.now() - 3 * DAY },
+            "S01E002": { season: 1, episode: 2, label: "Saison 1 · Épisode 2", url: "#", position: 920, duration: 2350, finished: false, updatedAt: Date.now() - 1800000 },
           },
         },
         "dark": {
@@ -32,7 +41,7 @@
           addedAt: Date.now() - 200 * DAY, lastWatchedAt: Date.now() - 40 * DAY,
           lastEpisode: "S03E008",
           episodes: {
-            "S03E008": { label: "Saison 3 · Épisode 8", url: "#", position: 3560, duration: 3600, finished: true, updatedAt: Date.now() - 40 * DAY },
+            "S03E008": { season: 3, episode: 8, label: "Saison 3 · Épisode 8", url: "#", position: 3560, duration: 3600, finished: true, updatedAt: Date.now() - 40 * DAY },
           },
         },
       },
@@ -41,11 +50,16 @@
     window.chrome = {
       runtime: {
         id: "preview",
-        sendMessage: async () => ({ ok: true, title: "Série de démo" }),
+        sendMessage: async (msg) => {
+          if (msg && msg.type === "lysto:getMeta") {
+            return { showTitle: "Emily in Paris", season: 1, episode: 3 };
+          }
+          return { ok: true, title: "Série de démo" };
+        },
       },
       tabs: {
         create: (o) => window.open(o.url),
-        query: async () => [{ id: 1, title: "Emily in Paris - 2020", url: "https://exemple.tld/episode/emily-in-paris/1-2" }],
+        query: async () => [{ id: 1, title: "Emily in Paris - 2020", url: "https://exemple.tld/episode/emily-in-paris/1-3" }],
       },
       storage: {
         onChanged: { addListener: () => {} },
@@ -69,17 +83,52 @@
     <input id="search" type="search" placeholder="Rechercher une série…" autocomplete="off" />
   </div>
 
+  <div id="add-panel" class="panel" hidden>
+    <div class="panel-title">📺 Suivre une série</div>
+    <p class="panel-hint">Lysto a détecté ces infos depuis l'onglet actif. Tu peux les corriger avant d'ajouter.</p>
+    <label class="input-label">Nom de la série</label>
+    <input id="add-title" type="text" placeholder="Ex: Breaking Bad" autocomplete="off" />
+    <div class="row2">
+      <div class="input-group">
+        <label class="input-label">Saison</label>
+        <input id="add-season" type="number" min="0" placeholder="—" />
+      </div>
+      <div class="input-group">
+        <label class="input-label">Épisode</label>
+        <input id="add-episode" type="number" min="0" placeholder="—" />
+      </div>
+    </div>
+    <div class="panel-actions">
+      <button id="add-confirm" class="btn btn-primary">✓ Ajouter</button>
+      <button id="add-cancel" class="btn btn-ghost">Annuler</button>
+    </div>
+  </div>
+
   <main id="list"></main>
 
   <div id="empty" class="empty" hidden>
     <div class="empty-icon">🎬</div>
     <p class="empty-title">Aucune série suivie</p>
-    <p class="empty-sub">Lance un épisode sur ton site habituel : Lysto te proposera de suivre la série automatiquement.</p>
+    <p class="empty-sub">Lance un épisode sur ton site habituel : Lysto te proposera de suivre la série automatiquement.<br><br>Tu peux aussi cliquer <strong>＋</strong> pour ajouter manuellement.</p>
+  </div>
+
+  <div id="settings-panel" class="panel" hidden>
+    <div class="panel-title">🤖 Assistance IA (optionnel)</div>
+    <p class="panel-hint">
+      Quand un site est illisible, Lysto peut demander à Claude d'identifier la
+      série. Colle une clé API Anthropic — elle reste uniquement dans ton navigateur.
+    </p>
+    <input id="ai-key" type="password" placeholder="sk-ant-…" autocomplete="off" />
+    <div class="panel-actions">
+      <button id="ai-save" class="btn btn-primary">Enregistrer</button>
+      <span id="ai-status" class="panel-hint"></span>
+    </div>
   </div>
 
   <footer>
     <span id="ignored-info"></span>
     <button id="reset-ignored" class="link" hidden>Réinitialiser</button>
+    <button id="settings-toggle" class="gear" title="Réglages">⚙</button>
   </footer>
 
   <script src="../extension/popup.js"></script>

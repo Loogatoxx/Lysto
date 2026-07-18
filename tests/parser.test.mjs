@@ -53,6 +53,24 @@ const cases = [
     url: "https://senpai-stream.gay/episode/emily-in-paris/2-5",
     expect: { showTitle: "Emily In Paris", season: 2, episode: 5, episodeKey: "S02E005" },
   },
+  // wiflix style
+  {
+    title: "The Last of Us Saison 1 Épisode 3 VF - Wiflix",
+    url: "https://wiflix.tv/serie/the-last-of-us-saison-1-episode-3",
+    expect: { showTitle: "The Last of Us", season: 1, episode: 3, episodeKey: "S01E003" },
+  },
+  // URL avec saison-episode en segments
+  {
+    title: "Lecteur vidéo",
+    url: "https://site.tv/anime/demon-slayer/saison-3-episode-11",
+    expect: { showTitle: "Demon Slayer", season: 3, episode: 11, episodeKey: "S03E011" },
+  },
+  // Format compact EP5
+  {
+    title: "Naruto Shippuden EP 345",
+    url: "https://anime.example/naruto-shippuden",
+    expect: { showTitle: "Naruto Shippuden", season: null, episode: 345, episodeKey: "E0345" },
+  },
 ];
 
 let failed = 0;
@@ -82,6 +100,38 @@ assert.strictEqual(multi.showTitle, "Emily in Paris", "multi: showTitle → " + 
 assert.strictEqual(multi.season, 1, "multi: season");
 assert.strictEqual(multi.episode, 2, "multi: episode");
 assert.strictEqual(multi.episodeKey, "S01E002", "multi: episodeKey");
+
+// Cas réel anime-sama : saison dans l'URL, épisode dans un <select>,
+// titre sans numéros
+const anime = P.parseMediaMulti(
+  [
+    "One Piece - Saga 1 (East Blue) | Anime-Sama - Streaming et catalogage d'animes et scans.",
+    "One Piece",
+    "Saga 1 (East Blue)",
+    "Episode 5",
+  ],
+  "https://anime-sama.to/catalogue/one-piece/saison1/vostfr/"
+);
+assert.strictEqual(anime.showTitle, "One Piece", "anime-sama: showTitle → " + anime.showTitle);
+assert.strictEqual(anime.season, 1, "anime-sama: season → " + anime.season);
+assert.strictEqual(anime.episode, 5, "anime-sama: episode → " + anime.episode);
+assert.strictEqual(anime.episodeKey, "S01E005", "anime-sama: episodeKey → " + anime.episodeKey);
+
+// makeMeta : utilisé par l'ajout manuel et l'assistance IA
+const manual = P.makeMeta("Dark", 2, 3, "https://x.example/watch");
+assert.strictEqual(manual.episodeKey, "S02E003");
+assert.strictEqual(manual.episodeLabel, "Saison 2 · Épisode 3");
+assert.strictEqual(manual.showId, "dark");
+
+// cleanShowTitle : doit retirer les noms de sites connus
+assert.strictEqual(P.cleanShowTitle("The Bear - Wiflix"), "The Bear");
+assert.strictEqual(P.cleanShowTitle("Demon Slayer - French Stream"), "Demon Slayer");
+
+// Année en fin de titre
+assert.strictEqual(P.cleanShowTitle("Emily in Paris - 2020"), "Emily in Paris");
+
+// Mots parasites seuls
+assert.strictEqual(P.cleanShowTitle("Regarder Severance en streaming"), "Severance");
 
 if (failed) {
   console.error(`\n${failed} test(s) en échec`);
