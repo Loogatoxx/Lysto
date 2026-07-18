@@ -18,7 +18,10 @@
   </div>
 
   <div id="add-panel" class="panel" hidden>
-    <div class="panel-title">📺 Suivre une série</div>
+    <div class="panel-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;"><rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+      Suivre une série
+    </div>
     <p class="panel-hint">Lysto a détecté ces infos depuis l'onglet actif. Tu peux les corriger avant d'ajouter.</p>
     <label class="input-label">Nom de la série</label>
     <input id="add-title" type="text" placeholder="Ex: Breaking Bad" autocomplete="off" />
@@ -47,7 +50,10 @@
   </div>
 
   <div id="settings-panel" class="panel" hidden>
-    <div class="panel-title">🤖 Assistance IA (optionnel)</div>
+    <div class="panel-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;"><rect width="16" height="12" x="4" y="8" rx="2" ry="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+      Assistance IA (optionnel)
+    </div>
     <p class="panel-hint">
       Quand un site est illisible, Lysto peut demander à Claude d'identifier la
       série. Colle une clé API Anthropic — elle reste uniquement dans ton navigateur.
@@ -60,21 +66,28 @@
   </div>
 
   <div id="transfer-panel" class="panel" hidden>
-    <div class="panel-title">🔄 Transfert entre navigateurs</div>
+    <div class="panel-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+      Transfert entre navigateurs
+    </div>
     <p class="panel-hint">
       Exporte tes données pour les importer dans un autre navigateur (Chrome → Safari, Opera → Chrome…).
       Le fichier contient toutes tes séries, épisodes et progression.
     </p>
     <div class="transfer-actions">
       <button id="export-btn" class="btn btn-transfer">
-        <span class="transfer-icon">📤</span>
+        <span class="transfer-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        </span>
         <span class="transfer-text">
           <strong>Exporter</strong>
           <small>Télécharger mes données</small>
         </span>
       </button>
       <button id="import-btn" class="btn btn-transfer">
-        <span class="transfer-icon">📥</span>
+        <span class="transfer-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        </span>
         <span class="transfer-text">
           <strong>Importer</strong>
           <small>Charger depuis un fichier</small>
@@ -88,8 +101,12 @@
   <footer>
     <span id="ignored-info"></span>
     <button id="reset-ignored" class="link" hidden>Réinitialiser</button>
-    <button id="transfer-toggle" class="gear" title="Exporter / Importer">🔄</button>
-    <button id="settings-toggle" class="gear" title="Réglages">⚙</button>
+    <button id="transfer-toggle" class="gear" title="Exporter / Importer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+    </button>
+    <button id="settings-toggle" class="gear" title="Réglages">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+    </button>
   </footer>
 
   <script src="popup.js"></script>

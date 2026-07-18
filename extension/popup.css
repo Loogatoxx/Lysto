@@ -262,10 +262,13 @@ footer {
   background: none; border: none;
   color: var(--muted);
   font-size: 15px;
-  padding: 2px 4px;
+  padding: 4px;
   border-radius: 6px;
   transition: all 0.15s;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .gear:hover { color: var(--text); background: rgba(255, 255, 255, 0.08); }
 
